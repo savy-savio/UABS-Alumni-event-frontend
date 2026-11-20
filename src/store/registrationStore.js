@@ -2,13 +2,7 @@
 import { create } from 'zustand'
 
 // Backend API URL
-const API = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
-
-if (!API) {
-  throw new Error(
-    'VITE_API_URL is missing. Please configure your backend API URL.'
-  )
-}
+const API = 'https://uabs-alumni-event-backend.onrender.com/api/v1'
 
 const EMPTY = {
   name: '',
@@ -17,15 +11,12 @@ const EMPTY = {
   email: '',
 }
 
-// Backend field name -> form field name
 const FIELD_MAP = {
   fullName: 'name',
   matriculationNumber: 'matric',
   enrolledProgramme: 'programme',
   email: 'email',
 }
-
-/* ---------- Validation ---------- */
 
 function validate(v) {
   const e = {}
@@ -48,18 +39,6 @@ function validate(v) {
 
   return e
 }
-
-/* ---------- Backend Registration ---------- */
-
-/**
- * Calls the backend and returns:
- * {
- *   reference,
- *   email,
- *   qrImage,
- *   emailSent
- * }
- */
 
 async function postRegistration(values) {
   let res
@@ -86,7 +65,6 @@ async function postRegistration(values) {
   const body = await res.json().catch(() => ({}))
 
   if (!res.ok) {
-    // Map backend validation errors to frontend form fields
     const fieldErrors = {}
 
     for (const item of body.errors || []) {
@@ -121,16 +99,13 @@ async function postRegistration(values) {
   }
 }
 
-/* ---------- Zustand Registration Store ---------- */
-
 export const useRegistrationStore = create((set, get) => ({
   values: EMPTY,
   errors: {},
-  status: 'idle', // idle | sending | done
+  status: 'idle',
   serverError: '',
   result: null,
 
-  /* Update form fields */
   setField: (key, value) =>
     set((s) => ({
       values: {
@@ -143,7 +118,6 @@ export const useRegistrationStore = create((set, get) => ({
       },
     })),
 
-  /* Submit registration */
   submit: async () => {
     if (get().status === 'sending') return
 
@@ -185,7 +159,6 @@ export const useRegistrationStore = create((set, get) => ({
     }
   },
 
-  /* Reset registration form */
   reset: () =>
     set({
       values: EMPTY,
