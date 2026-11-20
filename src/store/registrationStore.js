@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { addDemoRegistration } from '../admin/api.js'
 
 // e.g. http://localhost:5000/api/v1  (leave empty to run in demo mode)
-const API = import.meta.env.VITE_API_URL
+const API = "https://uabs-alumni-event-backend.onrender.com/api/v1"
 
 const EMPTY = { name: '', matric: '', email: '', programme: '', graduationDate: '', photo: '' }
 
