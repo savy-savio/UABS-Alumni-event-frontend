@@ -4,7 +4,7 @@ import Overview from './Overview.jsx'
 import Registrants from './Registrants.jsx'
 import Scanner from './Scanner.jsx'
 // import Icon from './Icon.jsx'
-import Icon from '../Icon.jsx'
+import Icon from './Icon.jsx'
 import { getAdmin, getRegistrations, isAuthed, logout, IS_DEMO } from './api.js'
 import './admin.css'
 
