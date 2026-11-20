@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Register from './Register.jsx'
-import { EVENT, PROGRAMME } from './data.js'
+import { EVENT, PROGRAMME, COUNCIL } from './data.js'
 
 function useCountdown(target) {
   const calc = () => Math.max(0, new Date(target) - Date.now())
@@ -56,6 +56,7 @@ export default function App() {
             <a href="#about">About</a>
             <a href="#programme">Programme</a>
             <a href="#venue">Venue</a>
+            <a href="#council">Council</a>
             <a href="#register" className="btn btn--gold btn--sm">Register</a>
           </nav>
         </div>
@@ -127,6 +128,28 @@ export default function App() {
               <li><strong>Date</strong>{EVENT.dateLabel}</li>
               <li><strong>Venue</strong>{EVENT.venue}</li>
               <li><strong>Attendance</strong>In person, or online for those who can’t travel</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="council" className="section section--tint">
+          <div className="wrap">
+            <h2 className="reveal">Executive Council</h2>
+            <p className="lead reveal">The people leading the UABS Alumni Association.</p>
+            <ul className="council">
+              {COUNCIL.map((m, i) => (
+                <li key={m.role || m.name || i} className="council__card reveal">
+                  <div className="council__photo">
+                    {m.photo ? (
+                      <img src={m.photo} alt={m.name || 'Council member'} loading="lazy" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z" /></svg>
+                    )}
+                  </div>
+                  <strong>{m.name || 'Name to be added'}</strong>
+                  <span>{m.role || 'Role to be added'}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </section>
