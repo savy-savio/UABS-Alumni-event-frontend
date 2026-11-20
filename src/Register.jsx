@@ -1,5 +1,5 @@
 import Pass from './Pass.jsx'
-import { PROGRAMMES, GRADUATION_YEARS } from './data.js'
+import { PROGRAMMES } from './data.js'
 import { useRegistrationStore } from './store/registrationStore.js'
 
 export default function Register() {
@@ -65,13 +65,18 @@ export default function Register() {
                   {errors.programme && <p role="alert">{errors.programme}</p>}
                 </div>
 
-                <div className={`field ${errors.graduationYear ? 'field--error' : ''}`}>
-                  <label htmlFor="graduationYear">Year of graduation</label>
-                  <select id="graduationYear" value={values.graduationYear} onChange={(e) => setField('graduationYear', e.target.value)} aria-invalid={!!errors.graduationYear}>
-                    <option value="">Select year</option>
-                    {GRADUATION_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                  {errors.graduationYear && <p role="alert">{errors.graduationYear}</p>}
+                <div className={`field ${errors.graduationDate ? 'field--error' : ''}`}>
+                  <label htmlFor="graduationDate">Year of graduation</label>
+                  <input
+                    id="graduationDate"
+                    type="date"
+                    min="1990-01-01"
+                    max="2035-12-31"
+                    value={values.graduationDate}
+                    onChange={(e) => setField('graduationDate', e.target.value)}
+                    aria-invalid={!!errors.graduationDate}
+                  />
+                  {errors.graduationDate && <p role="alert">{errors.graduationDate}</p>}
                 </div>
 
                 <div className={`field photo-field ${errors.photo ? 'field--error' : ''}`}>
@@ -111,6 +116,7 @@ export default function Register() {
         <div className="register__pass">
           <Pass
             {...values}
+            graduationYear={values.graduationDate.slice(0, 4)}
             code={result?.reference}
             qrImage={result?.qrImage}
             confirmed={status === 'done'}

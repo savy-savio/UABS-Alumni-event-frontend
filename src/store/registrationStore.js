@@ -4,7 +4,7 @@ import { addDemoRegistration } from '../admin/api.js'
 // e.g. http://localhost:5000/api/v1  (leave empty to run in demo mode)
 const API = import.meta.env.VITE_API_URL
 
-const EMPTY = { name: '', matric: '', email: '', programme: '', graduationYear: '', photo: '' }
+const EMPTY = { name: '', matric: '', email: '', programme: '', graduationDate: '', photo: '' }
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_INPUT = 10 * 1024 * 1024 // 10 MB picked from the phone/camera
@@ -46,7 +46,7 @@ const FIELD_MAP = {
   fullName: 'name',
   matriculationNumber: 'matric',
   enrolledProgramme: 'programme',
-  graduationYear: 'graduationYear',
+  graduationYear: 'graduationDate',
   photo: 'photo',
   email: 'email',
 }
@@ -56,7 +56,11 @@ function validate(v) {
   if (v.name.trim().length < 3) e.name = 'Enter your full name.'
   if (!v.matric.trim()) e.matric = 'Enter your matriculation number.'
   if (!v.programme) e.programme = 'Select your programme.'
-  if (!v.graduationYear) e.graduationYear = 'Select your year of graduation.'
+  if (!v.graduationDate) e.graduationDate = 'Pick your graduation date.'
+  else {
+    const y = Number(v.graduationDate.slice(0, 4))
+    if (y < 1990 || y > 2035) e.graduationDate = 'Pick a date between 1990 and 2035.'
+  }
   if (!v.photo) e.photo = 'Add your passport photograph.'
   if (!/^\S+@\S+\.\S+$/.test(v.email.trim())) e.email = 'Enter a valid email address.'
   return e
@@ -80,7 +84,7 @@ async function postRegistration(values) {
         fullName: values.name.trim(),
         matriculationNumber: values.matric.trim(),
         enrolledProgramme: values.programme,
-        graduationYear: Number(values.graduationYear),
+        graduationYear: Number(values.graduationDate.slice(0, 4)),
         photo: values.photo,
         email: values.email.trim().toLowerCase(),
       }),
