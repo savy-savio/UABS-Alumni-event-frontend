@@ -20,7 +20,7 @@ function beep(ok) {
 }
 
 const TITLES = {
-  VALID: 'Verified: ready to check in',
+  VALID: 'Approved: ready to check in',
   CHECKED_IN: 'Checked in',
   NOT_APPROVED: 'Awaiting approval',
   ALREADY_CHECKED_IN: 'Already checked in',
@@ -34,8 +34,8 @@ const TITLES = {
   ERROR: 'Something went wrong',
 }
 const FRIENDLY = {
-  VALID: 'Approved and ready. Compare the photo with the person, then check them in.',
-  NOT_APPROVED: 'This registration has not been approved yet. Compare the photo with the person, then approve.',
+  VALID: 'Compare the photo with the person in front of you, then check them in.',
+  NOT_APPROVED: 'Compare the photo and details with the person, then approve or reject.',
   CHECKED_IN: 'Participant successfully checked in.',
   ALREADY_CHECKED_IN: 'This person has already been checked in.',
   REJECTED: 'This registration was rejected.',
@@ -46,11 +46,20 @@ const FRIENDLY = {
 const TONE = { VALID: 'ok', CHECKED_IN: 'ok', NOT_APPROVED: 'warn', ALREADY_CHECKED_IN: 'warn' }
 const tone = (o) => TONE[o] || 'bad'
 
+const STEPS = ['Scan QR code', 'Review & approve', 'Check in']
+const stepFor = (scan) => {
+  if (!scan) return 0
+  if (scan.outcome === 'NOT_APPROVED') return 1
+  if (scan.outcome === 'VALID') return 2
+  if (scan.outcome === 'CHECKED_IN' || scan.outcome === 'ALREADY_CHECKED_IN') return 3
+  return 1
+}
+
 export default function Scanner({ onCheckedIn, onUpdated }) {
   const [cameraOn, setCameraOn] = useState(false)
   const [camError, setCamError] = useState('')
   const [manual, setManual] = useState('')
-  const [scan, setScan] = useState(null) // { token, outcome, message, participant }
+  const [scan, setScan] = useState(null) // { token, outcome, message, participant, scanProof }
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   const [history, setHistory] = useState([])
@@ -75,7 +84,7 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
       const res = await scanPass(token)
       setScan({ token, ...res })
       remember({ name: res.participant?.fullName || 'Unknown code', outcome: res.outcome })
-      beep(res.outcome === 'VALID')
+      beep(res.outcome === 'VALID' || res.outcome === 'NOT_APPROVED')
     } catch (e) {
       setScan({ token, outcome: 'ERROR', message: e.message, participant: null })
       remember({ name: 'Scan error', outcome: 'ERROR' })
@@ -136,12 +145,13 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
   const approve = () =>
     run(async () => {
       const p = scan.participant
-      await approveRegistration(p.id)
+      await approveRegistration(p.id, scan.scanProof)
       setScan((s) => ({
         ...s,
         outcome: s.outcome === 'NOT_APPROVED' ? 'VALID' : s.outcome,
         message: 'Registration approved. You can now check them in.',
         custom: true,
+        scanProof: null,
         participant: { ...s.participant, registrationStatus: 'APPROVED' },
       }))
       onUpdated(p.id, { status: 'APPROVED' })
@@ -151,12 +161,13 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
   const reject = (reason) =>
     run(async () => {
       const p = scan.participant
-      await rejectRegistration(p.id, reason)
+      await rejectRegistration(p.id, reason, scan.scanProof)
       setScan((s) => ({
         ...s,
         outcome: 'REJECTED',
         message: 'Registration rejected.',
         custom: true,
+        scanProof: null,
         participant: { ...s.participant, registrationStatus: 'REJECTED' },
       }))
       onUpdated(p.id, { status: 'REJECTED' })
@@ -183,11 +194,22 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
     })
 
   const p = scan?.participant
+  const step = stepFor(scan)
+  const canApprove = !!scan?.scanProof && p?.registrationStatus === 'PENDING'
 
   return (
     <div className="ad-scan">
-      <section>
-        <h2>Scan a pass</h2>
+      <ol className="steps" aria-label="Approval steps">
+        {STEPS.map((label, i) => (
+          <li key={label} className={i < step ? 'is-done' : i === step ? 'is-now' : ''}>
+            <span>{i < step ? '✓' : i + 1}</span> {label}
+          </li>
+        ))}
+      </ol>
+
+      <section className="card">
+        <h2>Scan a participant’s pass</h2>
+        <p className="muted">Registrations can only be approved after their QR code has been scanned here.</p>
         <div className="ad-cam">
           {cameraOn ? <div id="qr-reader" /> : <div className="ad-cam__off">Camera is off</div>}
         </div>
@@ -218,6 +240,7 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
                   participant={p}
                   busy={busy}
                   error={actionError}
+                  canApprove={canApprove}
                   canCheckIn={scan.outcome === 'VALID'}
                   onApprove={approve}
                   onReject={reject}
@@ -229,7 +252,7 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
               <button className="btn btn--ghost btn--sm ad-next" onClick={clearResult}>Scan next person</button>
             </>
           ) : (
-            <p>{busy ? 'Looking up pass' : 'Scan a pass to see the person’s photo and details here.'}</p>
+            <p>{busy ? 'Looking up pass…' : 'Scan a pass to see the person’s photo and details here.'}</p>
           )}
         </div>
 

@@ -3,6 +3,7 @@ export const IS_DEMO = !API
 
 const DEMO_KEY = 'uabs_demo_registrations'
 const TOKEN_KEY = 'uabs_admin_token'
+const PROFILE_KEY = 'uabs_admin_profile'
 
 /* ---------- demo mode (only when VITE_API_URL is empty): registration form only ---------- */
 export function addDemoRegistration(values) {
@@ -25,8 +26,13 @@ export function addDemoRegistration(values) {
 /* ---------- auth ---------- */
 export const isAuthed = () => !!sessionStorage.getItem(TOKEN_KEY)
 
+export function getAdmin() {
+  try { return JSON.parse(sessionStorage.getItem(PROFILE_KEY)) } catch { return null }
+}
+
 export function logout() {
   sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(PROFILE_KEY)
   if (API) fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
 }
 
@@ -47,6 +53,7 @@ export async function login(email, password) {
   const token = body?.data?.accessToken
   if (!res.ok || !token) throw new Error(body.message || 'Wrong email or password.')
   sessionStorage.setItem(TOKEN_KEY, token)
+  try { sessionStorage.setItem(PROFILE_KEY, JSON.stringify(body.data.administrator || null)) } catch {}
 }
 
 async function refreshSession() {
@@ -129,7 +136,7 @@ export async function getRegistrations() {
   }))
 }
 
-/** Full details plus photo for one registrant, shaped like a scan result. */
+/** Full details plus photo for one registrant (read-only view). */
 export async function getParticipantDetail(id) {
   const r = await request(`/admin/participants/${id}`)
   if (!r.ok) throw new Error(r.data?.message || 'Could not load this registrant.')
@@ -148,13 +155,14 @@ export async function getParticipantDetail(id) {
   }
 }
 
-export async function approveRegistration(id) {
-  const r = await request(`/admin/participants/${id}/approve`, { method: 'PATCH', body: {} })
+/** Approving needs the scanProof the server issued when the QR code was scanned. */
+export async function approveRegistration(id, scanProof) {
+  const r = await request(`/admin/participants/${id}/approve`, { method: 'PATCH', body: { scanProof } })
   if (!r.ok) throw new Error(r.data?.message || 'Could not approve this registration.')
 }
 
-export async function rejectRegistration(id, reason) {
-  const r = await request(`/admin/participants/${id}/reject`, { method: 'PATCH', body: { reason } })
+export async function rejectRegistration(id, reason, scanProof) {
+  const r = await request(`/admin/participants/${id}/reject`, { method: 'PATCH', body: { reason, scanProof } })
   if (!r.ok) throw new Error(r.data?.message || 'Could not reject this registration.')
 }
 
@@ -169,14 +177,14 @@ export function extractToken(text) {
   return t
 }
 
-// Looks the pass up WITHOUT checking the person in. Returns { outcome, message, participant }
+// Looks the pass up WITHOUT checking the person in. Returns { outcome, message, participant, scanProof }
 export async function scanPass(token) {
-  if (token.length < 20) return { outcome: 'INVALID', message: 'This is not a valid pass code.', participant: null }
+  if (token.length < 20) return { outcome: 'INVALID', message: 'This is not a valid pass code.', participant: null, scanProof: null }
   const r = await request('/accreditation/scan', { method: 'POST', body: { token } })
   if (r.status === 429) throw new Error('Scanning too fast. Wait a few seconds and try again.')
   const d = r.data || {}
   if (!d.outcome) throw new Error(d.message || 'Scan failed. Try again.')
-  return { outcome: d.outcome, message: d.message, participant: d.participant || null }
+  return { outcome: d.outcome, message: d.message, participant: d.participant || null, scanProof: d.scanProof || null }
 }
 
 // Marks the person as arrived. Returns { outcome, message, participant?, checkedInAt? }
