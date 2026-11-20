@@ -24,15 +24,15 @@ export function addDemoRegistration(values) {
 }
 
 /* ---------- auth ---------- */
-export const isAuthed = () => !!sessionStorage.getItem(TOKEN_KEY)
+export const isAuthed = () => !!localStorage.getItem(TOKEN_KEY)
 
 export function getAdmin() {
-  try { return JSON.parse(sessionStorage.getItem(PROFILE_KEY)) } catch { return null }
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)) } catch { return null }
 }
 
 export function logout() {
-  sessionStorage.removeItem(TOKEN_KEY)
-  sessionStorage.removeItem(PROFILE_KEY)
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(PROFILE_KEY)
   if (API) fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
 }
 
@@ -52,21 +52,37 @@ export async function login(email, password) {
   const body = await res.json().catch(() => ({}))
   const token = body?.data?.accessToken
   if (!res.ok || !token) throw new Error(body.message || 'Wrong email or password.')
-  sessionStorage.setItem(TOKEN_KEY, token)
-  try { sessionStorage.setItem(PROFILE_KEY, JSON.stringify(body.data.administrator || null)) } catch {}
+  localStorage.setItem(TOKEN_KEY, token)
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(body.data.administrator || null)) } catch {}
 }
 
-async function refreshSession() {
-  try {
-    const res = await fetch(`${API}/auth/refresh`, { method: 'POST', credentials: 'include' })
-    if (!res.ok) return false
-    const body = await res.json()
-    if (!body?.data?.accessToken) return false
-    sessionStorage.setItem(TOKEN_KEY, body.data.accessToken)
-    return true
-  } catch {
-    return false
+// One refresh at a time: every request that hits an expired token waits for the same refresh.
+// Returns 'ok' (new token saved), 'denied' (server says the login is no longer valid) or 'error' (network/server hiccup).
+let refreshing = null
+
+async function doRefresh() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API}/auth/refresh`, { method: 'POST', credentials: 'include' })
+      if (res.ok) {
+        const body = await res.json().catch(() => ({}))
+        if (body?.data?.accessToken) {
+          localStorage.setItem(TOKEN_KEY, body.data.accessToken)
+          return 'ok'
+        }
+        return 'error'
+      }
+      if (res.status === 401 || res.status === 403) return 'denied'
+    } catch {}
+    // Network problem or sleeping server: wait and try again before giving up
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
   }
+  return 'error'
+}
+
+function refreshSession() {
+  if (!refreshing) refreshing = doRefresh().finally(() => { refreshing = null })
+  return refreshing
 }
 
 /** Authenticated request. Retries once with a refreshed access token when the old one has expired. */
@@ -79,7 +95,7 @@ async function request(path, { method = 'GET', body } = {}, retried = false) {
       credentials: 'include',
       headers: {
         ...(body ? { 'Content-Type': 'application/json' } : {}),
-        Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY) || ''}`,
+        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
       },
       body: body ? JSON.stringify(body) : undefined,
     })
@@ -87,9 +103,14 @@ async function request(path, { method = 'GET', body } = {}, retried = false) {
     throw new Error('Cannot reach the server. Check your connection.')
   }
   if (res.status === 401 && !retried) {
-    if (await refreshSession()) return request(path, { method, body }, true)
-    sessionStorage.removeItem(TOKEN_KEY)
-    throw new Error('Session expired. Sign in again.')
+    const outcome = await refreshSession()
+    if (outcome === 'ok') return request(path, { method, body }, true)
+    if (outcome === 'denied') {
+      localStorage.removeItem(TOKEN_KEY)
+      throw new Error('Session expired. Sign in again.')
+    }
+    // Temporary problem: stay signed in and let the person try again
+    throw new Error('Cannot reach the server. Check your connection and try again.')
   }
   const data = await res.json().catch(() => ({}))
   return { status: res.status, ok: res.ok, data }

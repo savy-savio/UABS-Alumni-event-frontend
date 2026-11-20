@@ -41,7 +41,7 @@ export default function ParticipantCard({ participant: p, busy, error, canApprov
 
       {error && <p className="server-error pc__error" role="alert">{error}</p>}
 
-            <div className="pc__actions">
+      <div className="pc__actions">
         {pending && onApprove && (
           <button className="btn btn--gold" disabled={busy || !canApprove} onClick={onApprove}>
             {busy ? 'Working…' : 'Approve registration'}
