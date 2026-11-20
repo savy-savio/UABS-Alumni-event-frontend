@@ -41,17 +41,25 @@ export default function ParticipantCard({ participant: p, busy, error, canApprov
 
       {error && <p className="server-error pc__error" role="alert">{error}</p>}
 
-      <div className="pc__actions">
-        {pending && canApprove && onApprove && (
-          <button className="btn btn--gold" disabled={busy} onClick={onApprove}>{busy ? 'Working…' : 'Approve registration'}</button>
+            <div className="pc__actions">
+        {pending && onApprove && (
+          <button className="btn btn--gold" disabled={busy || !canApprove} onClick={onApprove}>
+            {busy ? 'Working…' : 'Approve registration'}
+          </button>
         )}
-        {pending && canApprove && onReject && !rejecting && (
-          <button className="btn btn--ghost" disabled={busy} onClick={() => setRejecting(true)}>Reject</button>
+        {pending && onReject && !rejecting && (
+          <button className="btn btn--ghost" disabled={busy || !canApprove} onClick={() => setRejecting(true)}>
+            Reject
+          </button>
         )}
         {canCheckIn && onCheckIn && (
           <button className="btn btn--gold" disabled={busy} onClick={onCheckIn}>{busy ? 'Working…' : 'Check in'}</button>
         )}
       </div>
+
+      {pending && !canApprove && (
+        <p className="muted pc__error">Approval needs a fresh scan. Tap “Scan next person” and scan this QR code again.</p>
+      )}
 
       {rejecting && (
         <form className="pc__reject" onSubmit={confirmReject}>
