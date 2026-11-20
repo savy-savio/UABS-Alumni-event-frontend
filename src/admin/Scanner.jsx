@@ -36,7 +36,7 @@ const TITLES = {
 const FRIENDLY = {
   VALID: 'Compare the photo with the person in front of you, then check them in.',
   NOT_APPROVED: 'Compare the photo and details with the person, then approve or reject.',
-  CHECKED_IN: 'Participant successfully checked in.',
+  CHECKED_IN: 'Approved and checked in.',
   ALREADY_CHECKED_IN: 'This person has already been checked in.',
   REJECTED: 'This registration was rejected.',
   CANCELLED: 'This registration was cancelled.',
@@ -46,12 +46,10 @@ const FRIENDLY = {
 const TONE = { VALID: 'ok', CHECKED_IN: 'ok', NOT_APPROVED: 'warn', ALREADY_CHECKED_IN: 'warn' }
 const tone = (o) => TONE[o] || 'bad'
 
-const STEPS = ['Scan QR code', 'Review & approve', 'Check in']
+const STEPS = ['Scan QR code', 'Review & approve']
 const stepFor = (scan) => {
   if (!scan) return 0
-  if (scan.outcome === 'NOT_APPROVED') return 1
-  if (scan.outcome === 'VALID') return 2
-  if (scan.outcome === 'CHECKED_IN' || scan.outcome === 'ALREADY_CHECKED_IN') return 3
+  if (scan.outcome === 'CHECKED_IN' || scan.outcome === 'ALREADY_CHECKED_IN') return 2
   return 1
 }
 
@@ -142,20 +140,24 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
     }
   }
 
+  // Approving a person also checks them in (the server records the check-in)
   const approve = () =>
     run(async () => {
       const p = scan.participant
       await approveRegistration(p.id, scan.scanProof)
+      const when = new Date().toISOString()
       setScan((s) => ({
         ...s,
-        outcome: s.outcome === 'NOT_APPROVED' ? 'VALID' : s.outcome,
-        message: 'Registration approved. You can now check them in.',
+        outcome: 'CHECKED_IN',
+        message: 'Approved and checked in.',
         custom: true,
         scanProof: null,
-        participant: { ...s.participant, registrationStatus: 'APPROVED' },
+        participant: { ...s.participant, registrationStatus: 'APPROVED', checkedInAt: when },
       }))
       onUpdated(p.id, { status: 'APPROVED' })
-      remember({ name: p.fullName, outcome: 'APPROVED' })
+      onCheckedIn({ id: p.id, checkedInAt: when })
+      remember({ name: p.fullName, outcome: 'CHECKED_IN' })
+      beep(true)
     })
 
   const reject = (reason) =>
@@ -174,6 +176,7 @@ export default function Scanner({ onCheckedIn, onUpdated }) {
       remember({ name: p.fullName, outcome: 'REJECTED' })
     })
 
+  // Fallback for people approved before approval counted as check-in
   const checkIn = () =>
     run(async () => {
       const res = await checkInPass(scan.token)
