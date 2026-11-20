@@ -1,13 +1,7 @@
 
-const API = import.meta.env.VITE_API_URL?.replace(/\/+$/, '')
-const TOKEN_KEY = 'uabs_admin_token'
+const API = 'https://uabs-alumni-event-backend.onrender.com/api/v1'
 
-// Ensure the backend URL is configured
-if (!API) {
-  throw new Error(
-    'VITE_API_URL is not configured. Please add it to your .env file.'
-  )
-}
+const TOKEN_KEY = 'uabs_admin_token'
 
 /* ---------- API helper ---------- */
 
@@ -46,13 +40,11 @@ async function apiRequest(endpoint, options = {}) {
 
 /* ---------- Authentication ---------- */
 
-export const isAuthed = () => {
-  return !!sessionStorage.getItem(TOKEN_KEY)
-}
+export const isAuthed = () =>
+  !!sessionStorage.getItem(TOKEN_KEY)
 
-export const logout = () => {
+export const logout = () =>
   sessionStorage.removeItem(TOKEN_KEY)
-}
 
 export async function login(username, password) {
   const body = await apiRequest('/admin/login', {
@@ -94,9 +86,6 @@ export async function getRegistrations() {
 
 /* ---------- Check-in ---------- */
 
-// Returns:
-// { status: 'checked_in' | 'already' | 'invalid', registrant? }
-
 export async function checkIn(code) {
   const clean = String(code).trim()
 
@@ -105,15 +94,12 @@ export async function checkIn(code) {
   }
 
   try {
-    const body = await apiRequest('/admin/checkin', {
+    return await apiRequest('/admin/checkin', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ code: clean }),
     })
-
-    return body
   } catch (error) {
-    // A 404 means registration code was not found.
     if (error.message === 'Registration not found.') {
       return { status: 'invalid' }
     }
