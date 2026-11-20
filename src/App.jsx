@@ -103,12 +103,14 @@ export default function App() {
 
         <section id="programme" className="section section--tint">
           <div className="wrap">
-            <h2 className="reveal">One day, three moments</h2>
+            <h2 className="reveal">One event, three moments</h2>
             <ol className="timeline">
               {PROGRAMME.map((p) => (
-                <li key={p.title} className="reveal">
+                <li key={p.time} className="reveal">
                   <time>{p.time}</time>
-                  <div><h3>{p.title}</h3><p>{p.text}</p></div>
+                  <div className="moment">
+                    {p.items.map((item) => <h3 key={item}>{item}</h3>)}
+                  </div>
                 </li>
               ))}
             </ol>

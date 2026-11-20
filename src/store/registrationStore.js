@@ -6,11 +6,14 @@ const API = import.meta.env.VITE_API_URL
 
 const EMPTY = { name: '', matric: '', programme: '', email: '' }
 
+
+
 // backend field name -> form field name
 const FIELD_MAP = {
   fullName: 'name',
   matriculationNumber: 'matric',
   enrolledProgramme: 'programme',
+  graduationYear: 'graduationYear',
   email: 'email',
 }
 
@@ -20,6 +23,7 @@ function validate(v) {
   if (!v.matric.trim()) e.matric = 'Enter your matriculation number.'
   if (!v.programme) e.programme = 'Select your programme.'
   if (!/^\S+@\S+\.\S+$/.test(v.email.trim())) e.email = 'Enter a valid email address.'
+  if (!v.graduationYear) e.graduationYear = 'Select your year of graduation.'
   return e
 }
 
@@ -42,6 +46,7 @@ async function postRegistration(values) {
         matriculationNumber: values.matric.trim(),
         enrolledProgramme: values.programme,
         email: values.email.trim().toLowerCase(),
+        graduationYear: Number(values.graduationYear),
       }),
     })
   } catch {

@@ -166,3 +166,6 @@ form{margin-top:28px;display:grid;gap:18px}
   .word,.hero__sub,.hero__meta,.countdown,.hero__cta,.reveal{opacity:1;transform:none}
   html{scroll-behavior:auto}
 }
+
+.moment h3{font-size:1.25rem;margin-bottom:10px}
+.moment h3:last-child{margin-bottom:0}

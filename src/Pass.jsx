@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 
-export default function Pass({ name, matric, programme, email, code, qrImage, confirmed }) {
+export default function Pass({ name, matric, programme, graduationYear, email, code, qrImage, confirmed }) {
   // Preview only until registration succeeds; then the real QR from the backend is shown.
   const value = confirmed && code
     ? code
@@ -21,6 +21,7 @@ export default function Pass({ name, matric, programme, email, code, qrImage, co
         <div><dt>Name</dt><dd className={name ? '' : 'empty'}>{name || 'Your full name'}</dd></div>
         <div><dt>Matric no.</dt><dd className={matric ? '' : 'empty'}>{matric || '00/000XXX/000'}</dd></div>
         <div><dt>Programme</dt><dd className={programme ? '' : 'empty'}>{programme || 'Your programme'}</dd></div>
+        <div><dt>Graduation year</dt><dd className={graduationYear ? '' : 'empty'}>{graduationYear || 'Year of graduation'}</dd></div>
         <div><dt>Email</dt><dd className={email ? '' : 'empty'}>{email || 'you@email.com'}</dd></div>
       </dl>
       <div className="pass__code">

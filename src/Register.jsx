@@ -1,5 +1,5 @@
 import Pass from './Pass.jsx'
-import { PROGRAMMES } from './data.js'
+import { PROGRAMMES, GRADUATION_YEARS } from './data.js'
 import { useRegistrationStore } from './store/registrationStore.js'
 
 export default function Register() {
@@ -50,6 +50,14 @@ export default function Register() {
               <h2>Register for the launch</h2>
               <p className="lead">Fill in your details exactly as they appear in your university records. Your pass fills in as you type, and the QR code is emailed to you once you register.</p>
               <form onSubmit={onSubmit} noValidate>
+                                <div className={`field ${errors.graduationYear ? 'field--error' : ''}`}>
+                  <label htmlFor="graduationYear">Year of graduation</label>
+                  <select id="graduationYear" value={values.graduationYear} onChange={(e) => setField('graduationYear', e.target.value)} aria-invalid={!!errors.graduationYear}>
+                    <option value="">Select year</option>
+                    {GRADUATION_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  {errors.graduationYear && <p role="alert">{errors.graduationYear}</p>}
+                </div>
                 {field('name', 'Full name', { autoComplete: 'name', placeholder: 'e.g. Aaron Okiemute Omere' })}
                 {field('matric', 'Matriculation number', { placeholder: 'e.g. 23/407BADP/097' })}
                 <div className={`field ${errors.programme ? 'field--error' : ''}`}>
