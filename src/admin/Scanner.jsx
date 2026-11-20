@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
-import { checkIn } from './api.js'
+import { approveRegistration, checkInPass, extractToken, rejectRegistration, scanPass } from './api.js'
+import ParticipantCard from './ParticipantCard.jsx'
 
 const fmt = (d) => new Date(d).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
 
@@ -18,39 +19,70 @@ function beep(ok) {
   } catch {}
 }
 
-const MESSAGES = {
-  checked_in: 'Access granted',
-  already: 'Already checked in',
-  invalid: 'Invalid code',
-  error: 'Check-in failed',
+const TITLES = {
+  VALID: 'Verified: ready to check in',
+  CHECKED_IN: 'Checked in',
+  NOT_APPROVED: 'Awaiting approval',
+  ALREADY_CHECKED_IN: 'Already checked in',
+  REJECTED: 'Registration rejected',
+  CANCELLED: 'Registration cancelled',
+  REVOKED: 'Pass has been revoked',
+  EXPIRED: 'Pass has expired',
+  EVENT_CANCELLED: 'Event cancelled',
+  WRONG_EVENT: 'Pass is for another event',
+  INVALID: 'Invalid code',
+  ERROR: 'Something went wrong',
 }
+const FRIENDLY = {
+  VALID: 'Approved and ready. Compare the photo with the person, then check them in.',
+  NOT_APPROVED: 'This registration has not been approved yet. Compare the photo with the person, then approve.',
+  CHECKED_IN: 'Participant successfully checked in.',
+  ALREADY_CHECKED_IN: 'This person has already been checked in.',
+  REJECTED: 'This registration was rejected.',
+  CANCELLED: 'This registration was cancelled.',
+  REVOKED: 'This QR code was revoked. Ask an organiser for help.',
+  EXPIRED: 'This QR code has expired.',
+}
+const TONE = { VALID: 'ok', CHECKED_IN: 'ok', NOT_APPROVED: 'warn', ALREADY_CHECKED_IN: 'warn' }
+const tone = (o) => TONE[o] || 'bad'
 
-export default function Scanner({ onCheckedIn }) {
+export default function Scanner({ onCheckedIn, onUpdated }) {
   const [cameraOn, setCameraOn] = useState(false)
   const [camError, setCamError] = useState('')
   const [manual, setManual] = useState('')
-  const [result, setResult] = useState(null)
+  const [scan, setScan] = useState(null) // { token, outcome, message, participant }
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
   const [history, setHistory] = useState([])
   const last = useRef({ code: '', at: 0 })
+  const currentToken = useRef('')
   const processRef = useRef()
   const inputRef = useRef()
 
+  const remember = (entry) => setHistory((h) => [{ ...entry, at: new Date().toISOString() }, ...h].slice(0, 8))
+
   async function process(raw, fromCamera) {
-    const code = String(raw).trim()
-    if (!code) return
+    const token = extractToken(raw)
+    if (!token) return
     const now = Date.now()
-    if (fromCamera && last.current.code === code && now - last.current.at < 3000) return
-    last.current = { code, at: now }
-    let res
+    // The camera keeps seeing the same QR: ignore repeats while that person is still on screen
+    if (fromCamera && (currentToken.current === token || (last.current.code === token && now - last.current.at < 3000))) return
+    last.current = { code: token, at: now }
+    currentToken.current = token
+    setActionError('')
+    setBusy(true)
     try {
-      res = await checkIn(code)
+      const res = await scanPass(token)
+      setScan({ token, ...res })
+      remember({ name: res.participant?.fullName || 'Unknown code', outcome: res.outcome })
+      beep(res.outcome === 'VALID')
     } catch (e) {
-      res = { status: 'error', message: e.message }
+      setScan({ token, outcome: 'ERROR', message: e.message, participant: null })
+      remember({ name: 'Scan error', outcome: 'ERROR' })
+      beep(false)
+    } finally {
+      setBusy(false)
     }
-    setResult({ ...res, code, at: new Date().toISOString() })
-    setHistory((h) => [{ ...res, code, at: new Date().toISOString() }, ...h].slice(0, 8))
-    if (res.registrant && res.status === 'checked_in') onCheckedIn(res.registrant)
-    beep(res.status === 'checked_in')
   }
   processRef.current = process
 
@@ -82,7 +114,75 @@ export default function Scanner({ onCheckedIn }) {
     inputRef.current?.focus()
   }
 
-  const r = result?.registrant
+  function clearResult() {
+    currentToken.current = ''
+    setScan(null)
+    setActionError('')
+    inputRef.current?.focus()
+  }
+
+  async function run(fn) {
+    setBusy(true)
+    setActionError('')
+    try {
+      await fn()
+    } catch (e) {
+      setActionError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const approve = () =>
+    run(async () => {
+      const p = scan.participant
+      await approveRegistration(p.id)
+      setScan((s) => ({
+        ...s,
+        outcome: s.outcome === 'NOT_APPROVED' ? 'VALID' : s.outcome,
+        message: 'Registration approved. You can now check them in.',
+        custom: true,
+        participant: { ...s.participant, registrationStatus: 'APPROVED' },
+      }))
+      onUpdated(p.id, { status: 'APPROVED' })
+      remember({ name: p.fullName, outcome: 'APPROVED' })
+    })
+
+  const reject = (reason) =>
+    run(async () => {
+      const p = scan.participant
+      await rejectRegistration(p.id, reason)
+      setScan((s) => ({
+        ...s,
+        outcome: 'REJECTED',
+        message: 'Registration rejected.',
+        custom: true,
+        participant: { ...s.participant, registrationStatus: 'REJECTED' },
+      }))
+      onUpdated(p.id, { status: 'REJECTED' })
+      remember({ name: p.fullName, outcome: 'REJECTED' })
+    })
+
+  const checkIn = () =>
+    run(async () => {
+      const res = await checkInPass(scan.token)
+      const when = res.checkedInAt || new Date().toISOString()
+      setScan((s) => ({
+        ...s,
+        outcome: res.outcome,
+        message: res.message,
+        participant: { ...s.participant, ...(res.participant || {}), photo: s.participant?.photo, checkedInAt: when },
+      }))
+      if (res.outcome === 'CHECKED_IN') {
+        onCheckedIn({ id: scan.participant.id, checkedInAt: when })
+        remember({ name: scan.participant.fullName, outcome: 'CHECKED_IN' })
+        beep(true)
+      } else {
+        beep(false)
+      }
+    })
+
+  const p = scan?.participant
 
   return (
     <div className="ad-scan">
@@ -97,41 +197,48 @@ export default function Scanner({ onCheckedIn }) {
         {camError && <p className="server-error" role="alert">{camError}</p>}
 
         <form onSubmit={submitManual} className="ad-manual">
-          <label htmlFor="code">USB scanner or manual code</label>
+          <label htmlFor="code">USB scanner or pass code</label>
           <div>
-            <input id="code" ref={inputRef} value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Click here, then scan or type the code" autoComplete="off" />
-            <button className="btn btn--ghost" disabled={!manual.trim()}>Check in</button>
+            <input id="code" ref={inputRef} value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Click here, then scan or paste the code" autoComplete="off" />
+            <button className="btn btn--ghost" disabled={!manual.trim() || busy}>Look up</button>
           </div>
         </form>
       </section>
 
       <section>
-        <div className={`ad-result ad-result--${result?.status || 'idle'}`} role="status" aria-live="polite">
-          {result ? (
+        <div className={`ad-result ad-result--${scan ? tone(scan.outcome) : 'idle'}`} role="status" aria-live="polite">
+          {scan ? (
             <>
-              <h2>{MESSAGES[result.status]}</h2>
-              {r ? (
-                <>
-                  <p className="ad-result__name">{r.name}</p>
-                  <p>{r.matric}</p>
-                  <p>{r.programme}</p>
-                  {result.status === 'already' && <p>First checked in at {fmt(r.checkedInAt)}</p>}
-                </>
-              ) : (
-                <p>{result.message || `No registration matches “${result.code}”.`}</p>
+              <h2>{TITLES[scan.outcome] || scan.outcome}</h2>
+              {(scan.custom ? scan.message : FRIENDLY[scan.outcome] || scan.message) && (
+                <p className="ad-result__msg">{scan.custom ? scan.message : FRIENDLY[scan.outcome] || scan.message}</p>
               )}
+              {p && (
+                <ParticipantCard
+                  participant={p}
+                  busy={busy}
+                  error={actionError}
+                  canCheckIn={scan.outcome === 'VALID'}
+                  onApprove={approve}
+                  onReject={reject}
+                  onCheckIn={checkIn}
+                />
+              )}
+              {!p && actionError && <p className="server-error">{actionError}</p>}
+              {p?.checkedInAt && scan.outcome !== 'VALID' && <p className="ad-result__msg">Checked in at {fmt(p.checkedInAt)}</p>}
+              <button className="btn btn--ghost btn--sm ad-next" onClick={clearResult}>Scan next person</button>
             </>
           ) : (
-            <p>Results appear here after you scan a pass.</p>
+            <p>{busy ? 'Looking up pass' : 'Scan a pass to see the person’s photo and details here.'}</p>
           )}
         </div>
 
         <h3>Recent scans</h3>
         <ul className="ad-history">
           {history.map((h, i) => (
-            <li key={i} className={`ad-history--${h.status}`}>
-              <span>{h.registrant?.name || h.code}</span>
-              <em>{MESSAGES[h.status]} · {fmt(h.at)}</em>
+            <li key={i} className={`ad-history--${tone(h.outcome === 'APPROVED' ? 'VALID' : h.outcome)}`}>
+              <span>{h.name}</span>
+              <em>{TITLES[h.outcome] || (h.outcome === 'APPROVED' ? 'Approved' : h.outcome)} · {fmt(h.at)}</em>
             </li>
           ))}
           {!history.length && <li className="muted">No scans yet.</li>}

@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { login } from './api.js'
 
@@ -10,17 +9,13 @@ export default function Login({ onDone }) {
 
   async function submit(e) {
     e.preventDefault()
-
-    if (busy) return
-
     setBusy(true)
     setErr('')
-
     try {
       await login(u.trim(), p)
       onDone()
-    } catch (error) {
-      setErr(error.message || 'Unable to sign in. Please try again.')
+    } catch (e) {
+      setErr(e.message)
     } finally {
       setBusy(false)
     }
@@ -29,59 +24,22 @@ export default function Login({ onDone }) {
   return (
     <div className="ad-login">
       <form className="ad-login__card" onSubmit={submit}>
-        <img src="/logo.jpeg" alt="UABS Alumni Launch" />
-
+        <img src="/logo.jpeg" alt="" />
         <h1>Admin sign in</h1>
         <p className="muted">UABS Alumni Launch 2026</p>
-
         <div className="field">
-          <label htmlFor="u">Username</label>
-          <input
-            id="u"
-            type="text"
-            value={u}
-            onChange={(e) => setU(e.target.value)}
-            autoComplete="username"
-            autoFocus
-            required
-          />
+          <label htmlFor="u">Email</label>
+          <input id="u" type="email" value={u} onChange={(e) => setU(e.target.value)} autoComplete="username" autoFocus />
         </div>
-
         <div className="field">
           <label htmlFor="p">Password</label>
-          <input
-            id="p"
-            type="password"
-            value={p}
-            onChange={(e) => setP(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
+          <input id="p" type="password" value={p} onChange={(e) => setP(e.target.value)} autoComplete="current-password" />
         </div>
-
-        {err && (
-          <p className="server-error" role="alert">
-            {err}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          className="btn btn--gold"
-          disabled={busy || !u.trim() || !p}
-        >
-          {busy ? (
-            <>
-              <span className="spinner" /> Signing in...
-            </>
-          ) : (
-            'Sign in'
-          )}
+        {err && <p className="server-error" role="alert">{err}</p>}
+        <button className="btn btn--gold" disabled={busy || !u || !p}>
+          {busy ? <><span className="spinner" /> Signing in</> : 'Sign in'}
         </button>
-
-        <a href="/" className="ad-back">
-          Back to the event page
-        </a>
+        <a href="/" className="ad-back">Back to the event page</a>
       </form>
     </div>
   )

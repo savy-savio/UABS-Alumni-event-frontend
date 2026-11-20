@@ -9,6 +9,8 @@ export default function Register() {
   const serverError = useRegistrationStore((s) => s.serverError)
   const result = useRegistrationStore((s) => s.result)
   const setField = useRegistrationStore((s) => s.setField)
+  const setPhoto = useRegistrationStore((s) => s.setPhoto)
+  const removePhoto = useRegistrationStore((s) => s.removePhoto)
   const submit = useRegistrationStore((s) => s.submit)
   const reset = useRegistrationStore((s) => s.reset)
 
@@ -50,16 +52,10 @@ export default function Register() {
               <h2>Register for the launch</h2>
               <p className="lead">Fill in your details exactly as they appear in your university records. Your pass fills in as you type, and the QR code is emailed to you once you register.</p>
               <form onSubmit={onSubmit} noValidate>
-                                <div className={`field ${errors.graduationYear ? 'field--error' : ''}`}>
-                  <label htmlFor="graduationYear">Year of graduation</label>
-                  <select id="graduationYear" value={values.graduationYear} onChange={(e) => setField('graduationYear', e.target.value)} aria-invalid={!!errors.graduationYear}>
-                    <option value="">Select year</option>
-                    {GRADUATION_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                  {errors.graduationYear && <p role="alert">{errors.graduationYear}</p>}
-                </div>
                 {field('name', 'Full name', { autoComplete: 'name', placeholder: 'e.g. Aaron Okiemute Omere' })}
                 {field('matric', 'Matriculation number', { placeholder: 'e.g. 23/407BADP/097' })}
+                {field('email', 'Email address', { type: 'email', autoComplete: 'email', placeholder: 'you@email.com' })}
+
                 <div className={`field ${errors.programme ? 'field--error' : ''}`}>
                   <label htmlFor="programme">Enrolled programme</label>
                   <select id="programme" value={values.programme} onChange={(e) => setField('programme', e.target.value)} aria-invalid={!!errors.programme}>
@@ -68,7 +64,42 @@ export default function Register() {
                   </select>
                   {errors.programme && <p role="alert">{errors.programme}</p>}
                 </div>
-                {field('email', 'Email address', { type: 'email', autoComplete: 'email', placeholder: 'you@email.com' })}
+
+                <div className={`field ${errors.graduationYear ? 'field--error' : ''}`}>
+                  <label htmlFor="graduationYear">Year of graduation</label>
+                  <select id="graduationYear" value={values.graduationYear} onChange={(e) => setField('graduationYear', e.target.value)} aria-invalid={!!errors.graduationYear}>
+                    <option value="">Select year</option>
+                    {GRADUATION_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  {errors.graduationYear && <p role="alert">{errors.graduationYear}</p>}
+                </div>
+
+                <div className={`field photo-field ${errors.photo ? 'field--error' : ''}`}>
+                  <label htmlFor="photo">Passport photograph</label>
+                  <div className="photo-field__row">
+                    <div className="photo-field__preview">
+                      {values.photo ? <img src={values.photo} alt="Preview of your photo" /> : <span>No photo</span>}
+                    </div>
+                    <div className="photo-field__side">
+                      <input
+                        id="photo"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        aria-invalid={!!errors.photo}
+                        onChange={(e) => {
+                          setPhoto(e.target.files?.[0])
+                          e.target.value = ''
+                        }}
+                      />
+                      <small>A clear, recent photo of your face. Admins will see it at check-in to confirm it is you.</small>
+                      {values.photo && (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={removePhoto}>Remove photo</button>
+                      )}
+                    </div>
+                  </div>
+                  {errors.photo && <p role="alert">{errors.photo}</p>}
+                </div>
+
                 {serverError && <p className="server-error" role="alert">{serverError}</p>}
                 <button className="btn btn--gold" disabled={status === 'sending'}>
                   {status === 'sending' ? <><span className="spinner" /> Registering</> : 'Register and get my pass'}
