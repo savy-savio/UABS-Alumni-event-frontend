@@ -3,7 +3,8 @@ import Login from './Login.jsx'
 import Overview from './Overview.jsx'
 import Registrants from './Registrants.jsx'
 import Scanner from './Scanner.jsx'
-import Icon from './Icon.jsx'
+// import Icon from './Icon.jsx'
+import Icon from '../Icon.jsx'
 import { getAdmin, getRegistrations, isAuthed, logout, IS_DEMO } from './api.js'
 import './admin.css'
 
@@ -35,6 +36,11 @@ export default function AdminApp() {
   }, [])
 
   useEffect(() => { if (authed) load() }, [authed, load])
+
+      // Each admin section starts at the top, instead of keeping the old scroll position
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [view])
 
   const onUpdated = (id, patch) => setRows((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))
   const onCheckedIn = (r) => onUpdated(r.id, { checkedInAt: r.checkedInAt })
